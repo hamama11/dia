@@ -1,2 +1,2 @@
 # dia
-DIA_Acapella_project in Jonro
+Simple is the ultimate so phistication
