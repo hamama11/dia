@@ -3,9 +3,50 @@ import streamlit.components.v1 as components
 
 st.set_page_config(layout="wide")
 
-st.title("✨ Evolving Logic – 반례가 논리를 완성한다")
+html_code = r"""
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>EVOLVING LOGIC</title>
 
-html_code = <!DOCTYPE html>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0F172A; }
+        canvas { display: block; }
+
+        .overlay {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            text-align: left;
+            pointer-events: none;
+            color: white;
+            font-family: 'Noto Sans KR', sans-serif;
+            z-index: 10;
+        }
+        h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            margin: 0;
+            letter-spacing: -1px;
+            background: linear-gradient(to right, #38BDF8, #818CF8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="overlay">
+    <h1>EVOLVING LOGIC</h1>
+</div>
+
+<canvas id="mathCanvas"></canvas>
+
+<script>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -346,6 +387,10 @@ html_code = <!DOCTYPE html>
 
     </script>
 </body>
+</html></script>
+
+</body>
 </html>
+"""
 
 components.html(html_code, height=1400, scrolling=False)
