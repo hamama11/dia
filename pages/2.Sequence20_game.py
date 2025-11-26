@@ -4,39 +4,38 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 
-st.title("🎮 수열 스무고개: 조건으로 맞혀라!")
+st.title("🎮 수열 스무고개 : 조건으로 추론하라")
 
 st.caption(
-    "출제자는 수열의 정체를 숨기고, "
-    "학생들은 표·그래프와 YES/NO 질문만으로 "
-    "수렴·발산과 구조를 추론하는 활동입니다."
+    "출제자는 수열의 정체를 감추어 두고, "
+    "배움의 이들은 표와 그래프, 그리고 예/아니오로 답할 수 있는 질문들만으로 "
+    "그 수열의 수렴·발산과 숨은 구조를 밝혀내는 놀이이옵니다."
 )
 
 st.markdown(
     """
-### 🎲 이 활동은 어떤 게임인가요?
+### 🎲 이 활동은 무엇을 겨냥한 놀이인가
 
-- 이 수업은 **‘스무고개’와 ‘라이어 게임’의 구조를 수열에 옮겨온 활동**입니다.  
-- **출제자(교사 또는 학생)** 는 하나의 수열을 마음속으로 정해두고,  
-  그 수열에 대한 **표·그래프(일부 항만 공개)** 와  
-  **YES/NO로만 답할 수 있는 조건 질문**들을 준비합니다.  
-- **추리자(다른 학생들)** 는  
-  - “수렴하는가?”, “유계인가?”, “단조인가?”, “부호가 무한히 바뀌는가?”와 같은  
-    **성질 중심의 질문**을 골라 던지며 정보를 모읍니다.  
-  - 질문 횟수는 제한되어 있고,  
-    얻은 정보만으로 **‘수렴/발산’과 극한값, 구조를 추론**해야 합니다.  
-- 교실에서 라이어 게임처럼 응용하면  
-  - 일부 학생에게는 **다른 수열 정보**를 쥐어주어  
-    토론 속에서 **누가 다른 생각(라이어)을 하고 있는지 찾는 활동**으로도 확장할 수 있습니다.  
-
-즉, 이 활동은 **수열의 극한을 공식 계산이 아니라 “조건·성질·표현”을 가지고 탐정처럼 추론해 보는 게임형 수업**입니다.
+- 이 수업은 **스무고개의 형식**을 빌려,  
+  수열의 극한과 구조를 **직접 묻고 따져 보는 탐구형 보드게임**과도 같사옵니다.
+- 출제자는 하나의 수열을 정하여 **일부 항의 표와 그래프만** 드러내고,  
+  나머지 정보는 감추어 둡니다.
+- 학생들은 다음과 같은 두 갈래의 질문을 던질 수 있사옵니다.
+  1. 이 수열 자체의 성질에 관한 질문  
+     - 수렴 여부, 유계성, 단조성, 부호 변화 등
+  2. **규칙을 더하거나, 다른 수열과 연산한 뒤**의 모습에 관한 질문  
+     - 예: 짝수 번째 항만 모은 부분수열은 어떠한가?  
+       \|aₙ\|은 수렴하는가? n·aₙ은 수렴하는가?  
+       1/n과 항별 곱을 하면 수렴성이 달라지는가? 등
+- 곧이곧대로 공식을 계산하기보다,  
+  **“어떤 조건을 바꾸면 극한의 운명이 어떻게 달라지는지”**를 살피는 것이  
+  이 놀이의 핵심이라 할 수 있사옵니다.
 """
 )
 
 # -----------------------------
 # 0. 숨겨진 수열 데이터 준비
 # -----------------------------
-# 각 수열은 흥미로운 성질을 갖도록 일부러 골랐음
 SEQUENCES = [
     {
         "name": "1/n",
@@ -48,10 +47,13 @@ SEQUENCES = [
         "bounded": True,
         "monotone": True,         # n>=1에서 단조 감소
         "sign_changes": False,
-        "n_times_conv": False,    # n*a_n = 1 → 수렴이지만 0이 아님
-        "abs_conv": True,
+        "n_times_conv": True,     # n*a_n = 1 → 수렴
+        "abs_conv": True,         # |a_n| = 1/n → 0으로 수렴
         "piecewise2": False,
-        "explain": "a_n = 1/n 은 단조 감소하고 유계인 수열로, 0으로 수렴합니다."
+        "even_subseq_conv": True,     # a_{2n} = 1/(2n) → 0
+        "odd_subseq_conv": True,      # a_{2n-1} = 1/(2n-1) → 0
+        "with_1_over_n_conv": True,   # a_n * (1/n) = 1/n^2 → 0
+        "explain": "a_n = 1/n 은 단조 감소하며 유계인 수열로, 0으로 수렴하옵니다."
     },
     {
         "name": "(-1)^n",
@@ -63,10 +65,13 @@ SEQUENCES = [
         "bounded": True,
         "monotone": False,
         "sign_changes": True,
-        "n_times_conv": None,     # n*a_n = ±n → 발산
-        "abs_conv": False,        # |a_n|=1 → 수렴(X), 상수지만 극한=1 (선생님이 설명용)
+        "n_times_conv": False,        # n*a_n = ±n → 발산
+        "abs_conv": False,            # |a_n| = 1 → 상수이나 '극한 구조' 비교용으로 비수렴 처리
         "piecewise2": True,
-        "explain": "a_n = (-1)^n 은 부호가 계속 바뀌며 두 값 사이를 진동하여 수렴하지 않습니다."
+        "even_subseq_conv": True,     # a_{2n} = 1
+        "odd_subseq_conv": True,      # a_{2n-1} = -1
+        "with_1_over_n_conv": True,   # (-1)^n / n → 0
+        "explain": "a_n = (-1)^n 은 두 값 사이를 오르내리며 진동하므로, 한 점으로 모이지는 않사옵니다."
     },
     {
         "name": "n",
@@ -78,10 +83,13 @@ SEQUENCES = [
         "bounded": False,
         "monotone": True,
         "sign_changes": False,
-        "n_times_conv": None,     # n*a_n = n^2 → 발산
+        "n_times_conv": False,        # n^2 → 발산
         "abs_conv": False,
         "piecewise2": False,
-        "explain": "a_n = n 은 단조 증가하지만 위로 유계가 아니므로 발산합니다."
+        "even_subseq_conv": False,    # 2n → 발산
+        "odd_subseq_conv": False,     # 2n-1 → 발산
+        "with_1_over_n_conv": True,   # n * (1/n) = 1 → 수렴
+        "explain": "a_n = n 은 끝없이 자라나 위로 유계가 아니므로, 극한이 존재하지 않사옵니다."
     },
     {
         "name": "(-1)^n / n",
@@ -93,14 +101,17 @@ SEQUENCES = [
         "bounded": True,
         "monotone": False,
         "sign_changes": True,
-        "n_times_conv": False,    # n*a_n = (-1)^n → 발산
-        "abs_conv": True,         # |a_n|=1/n → 0으로 수렴
+        "n_times_conv": False,        # (-1)^n → 진동
+        "abs_conv": True,             # |a_n| = 1/n → 0
         "piecewise2": True,
-        "explain": "a_n = (-1)^n / n 은 부호는 바뀌지만 크기는 0으로 가까워져서 수렴합니다."
+        "even_subseq_conv": True,     # 1/(2n) → 0
+        "odd_subseq_conv": True,      # -1/(2n-1) → 0
+        "with_1_over_n_conv": True,   # (-1)^n / n^2 → 0
+        "explain": "a_n = (-1)^n / n 은 부호는 번갈아 바뀌되, 크기가 줄어들어 마침내 0으로 모이옵니다."
     },
     {
         "name": "ln(n)",
-        "expr": r"a_n = \ln n",
+        "expr": r"a_n = \\ln n",
         "preview_n": 40,
         "seq": lambda n: np.log(n),
         "convergent": False,
@@ -108,14 +119,17 @@ SEQUENCES = [
         "bounded": False,
         "monotone": True,
         "sign_changes": False,
-        "n_times_conv": None,     # n*ln(n) → 발산
+        "n_times_conv": False,        # n ln n → 발산
         "abs_conv": False,
         "piecewise2": False,
-        "explain": "a_n = ln n 은 매우 느리지만 계속 증가하여 발산합니다."
+        "even_subseq_conv": False,    # ln(2n) → ∞
+        "odd_subseq_conv": False,     # ln(2n-1) → ∞
+        "with_1_over_n_conv": True,   # (ln n)/n → 0
+        "explain": "a_n = \\ln n 은 더디게 오르나, 끝내 멈추지 않고 발산하옵니다."
     },
     {
         "name": "sin(n)",
-        "expr": r"a_n = \sin n",
+        "expr": r"a_n = \\sin n",
         "preview_n": 60,
         "seq": lambda n: np.sin(n),
         "convergent": False,
@@ -123,22 +137,33 @@ SEQUENCES = [
         "bounded": True,
         "monotone": False,
         "sign_changes": True,
-        "n_times_conv": None,     # n*sin n → 보통 발산(제한 없음)
+        "n_times_conv": False,        # n sin n → 일반적으로 발산
         "abs_conv": False,
         "piecewise2": False,
-        "explain": "a_n = sin n 은 -1과 1 사이에서 복잡하게 진동하며 수렴하지 않습니다."
+        "even_subseq_conv": False,    # sin(2n) 진동
+        "odd_subseq_conv": False,     # sin(2n-1) 진동
+        "with_1_over_n_conv": True,   # sin n / n → 0
+        "explain": "a_n = \\sin n 은 -1과 1 사이를 복잡히 오가며, 한 점으로 모이지 않사옵니다."
     },
 ]
 
+# -----------------------------
 # 질문 목록 정의
+# -----------------------------
 QUESTIONS = [
-    ("convergent", "이 수열은 **수렴**하는가?"),
-    ("bounded", "이 수열은 **위·아래로 유계**인가?"),
-    ("monotone", "어느 시점부터 **단조**(계속 증가 또는 계속 감소)인가?"),
-    ("sign_changes", "항의 **부호가 무한히 자주 바뀌는가?**"),
-    ("n_times_conv", "**n·a_n** 은 수렴하는가?"),
-    ("abs_conv", r"**|a_n|** 은 수렴하는가?"),
-    ("piecewise2", "짝수/홀수 등 **두 개의 식으로 정의되는 수열**인가?")
+    # 기본 성질 질문
+    ("convergent", "이 수열은 **수렴**하느냐, 아니하느냐?"),
+    ("bounded", "이 수열은 위·아래로 **유계**라 할 수 있겠는가?"),
+    ("monotone", "어느 시점부터 **단조로이** 한 방향으로만 나아가는가?"),
+    ("sign_changes", "항의 **부호가 무한히 자주 뒤바뀌는가?**"),
+    ("abs_conv", r"절댓값 수열 **|a_n|** 은 수렴하느냐?"),
+    ("piecewise2", "짝수·홀수 등 **둘로 갈라 다른 식으로 정의**되는 수열이더냐?"),
+
+    # 규칙 변경·연산에 관한 확장 질문
+    ("n_times_conv", r"이 수열에 **n을 곱한 수열 n·a_n** 은 수렴하느냐?"),
+    ("even_subseq_conv", "짝수 항만 모은 부분수열 (a₂, a₄, …) 은 수렴하느냐?"),
+    ("odd_subseq_conv", "홀수 항만 모은 부분수열 (a₁, a₃, …) 은 수렴하느냐?"),
+    ("with_1_over_n_conv", r"이 수열을 **1/n과 항별 곱한 수열 a_n·(1/n)** 은 수렴하느냐?")
 ]
 
 MAX_QUESTIONS = 8  # 한 라운드 최대 질문 수
@@ -160,7 +185,7 @@ if "show_answer" not in st.session_state:
 # -----------------------------
 col_new, col_info = st.columns([1, 3])
 with col_new:
-    if st.button("🔄 새 라운드 시작하기"):
+    if st.button("🔄 새 라운드 다시 여는가"):
         st.session_state.seq_idx = int(np.random.randint(0, len(SEQUENCES)))
         st.session_state.asked = {}
         st.session_state.q_count = 0
@@ -168,9 +193,9 @@ with col_new:
 
 with col_info:
     if st.session_state.seq_idx is None:
-        st.info("👉 먼저 **'새 라운드 시작하기'** 버튼을 눌러 수열을 하나 뽑으세요.")
+        st.info("👉 먼저 **'새 라운드 다시 여는가'** 버튼을 눌러, 한 수열을 뽑아 보시옵소서.")
     else:
-        st.success("새 라운드가 진행 중입니다. 조건 질문을 던져 수열의 정체를 추리해 보세요!")
+        st.success("이제 질문을 골라 던지며, 감추어진 수열의 속내를 밝혀 보시옵소서.")
 
 if st.session_state.seq_idx is None:
     st.stop()
@@ -180,7 +205,7 @@ seq_data = SEQUENCES[st.session_state.seq_idx]
 # -----------------------------
 # 3. 표 & 그래프 (초기 정보)
 # -----------------------------
-st.markdown("## 1️⃣ 공개된 정보: 표와 그래프 (초기 몇 항만 보임)")
+st.markdown("## 1️⃣ 드러나 있는 단서 : 앞부분 표와 그래프")
 
 N_PREVIEW = seq_data["preview_n"]
 n_values = np.arange(1, N_PREVIEW + 1)
@@ -192,7 +217,7 @@ col_table, col_plot = st.columns(2)
 with col_table:
     st.subheader("표 (일부 항)")
     st.dataframe(df.head(10), use_container_width=True)
-    st.caption("※ 출제자는 뒤에 어떤 일이 일어나는지 알고 있지만, 학생은 여기까지만 볼 수 있다고 가정합니다.")
+    st.caption("※ 출제자는 뒤에 어떤 일이 기다리는지 알지만, 질문자는 이 앞부분만 보고 추론하여야 하옵니다.")
 
 with col_plot:
     st.subheader("그래프")
@@ -204,46 +229,45 @@ st.markdown("---")
 # -----------------------------
 # 4. 질문 라운드
 # -----------------------------
-st.markdown("## 2️⃣ YES / NO 질문하기")
+st.markdown("## 2️⃣ 예 / 아니오로만 묻는 질문들")
 
 st.write(
-    f"- 이 라운드에서 질문할 수 있는 총 횟수: **{MAX_QUESTIONS}회**"
+    f"- 이 라운드에서 허락된 질문의 총 수는 **{MAX_QUESTIONS}회**이옵니다."
 )
 st.write(
-    f"- 지금까지 사용한 질문 수: **{st.session_state.q_count}회**"
+    f"- 지금까지 쓰신 질문 수 : **{st.session_state.q_count}회**"
 )
 
 remaining_q = [q for q in QUESTIONS if q[0] not in st.session_state.asked]
 
 if st.session_state.q_count >= MAX_QUESTIONS:
-    st.warning("질문 사용 한도에 도달했습니다. 이제 가진 정보로 추론해 보세요!")
+    st.warning("더 이상 질문은 허락되지 않사옵니다. 이제까지의 단서로 판단을 내리시옵소서.")
 else:
     if not remaining_q:
-        st.info("더 이상 새로 물어볼 수 있는 질문이 없습니다.")
+        st.info("더 물어볼 만한 새 질문은 남지 않았사옵니다.")
     else:
         q_key, q_label = st.selectbox(
-            "질문을 하나 선택하세요 (아직 묻지 않은 것만 표시됩니다)",
+            "묻고자 하는 질문 하나를 고르시옵소서. (아직 하지 않은 질문만 나열되옵니다.)",
             remaining_q,
             format_func=lambda x: x[1]
         )
 
-        if st.button("❓ 이 질문 하기"):
-            # 실제 답 찾기
+        if st.button("❓ 이 질문을 던지겠는가"):
             ans = seq_data[q_key]  # True / False / None
             st.session_state.asked[q_key] = ans
             st.session_state.q_count += 1
 
 # 이미 물어본 질문과 답 요약
 if st.session_state.asked:
-    st.markdown("### 💬 지금까지 얻은 YES/NO 정보")
+    st.markdown("### 💬 지금까지 드러난 예/아니오의 기록")
     for key, ans in st.session_state.asked.items():
         label = dict(QUESTIONS)[key]
         if ans is True:
-            txt = "YES"
+            txt = "YES (그러하옵니다.)"
         elif ans is False:
-            txt = "NO"
+            txt = "NO (그렇지 않사옵니다.)"
         else:
-            txt = "판단 불가 / 애매함 (출제자가 미리 정의한 값 없음)"
+            txt = "판단 불가 (미리 정해 두지 아니하였음)"
         st.write(f"- **{label}** ➜ **{txt}**")
 
 st.markdown("---")
@@ -251,24 +275,24 @@ st.markdown("---")
 # -----------------------------
 # 5. 수렴/발산 추론 구역
 # -----------------------------
-st.markdown("## 3️⃣ 이제 당신의 추론을 적어보세요")
+st.markdown("## 3️⃣ 이제 그대의 판단을 밝힐 차례")
 
 col_judge1, col_judge2 = st.columns(2)
 with col_judge1:
     verdict = st.radio(
-        "이 수열은…",
-        ["수렴한다", "발산한다", "판단 보류"],
+        "이 수열의 운명은 어떠하다고 보시는가?",
+        ["수렴한다", "발산한다", "아직 판단을 미루겠다"],
         index=2
     )
 with col_judge2:
     guess_limit = st.text_input(
-        "극한값을 추측한다면? (없으면 비워두기)",
+        "수렴한다고 본다면, 그 극한값은 무엇이라 여기시는가? (모르겠다면 비워 두어도 좋사옵니다.)",
         value=""
     )
 
 reason = st.text_area(
-    "당신의 판단 근거를 적어보세요.",
-    placeholder="예: 표를 보면 점점 줄어들고, 출제자의 답변으로 단조·유계임을 알게 되었으므로 0으로 수렴한다고 추측한다 등"
+    "어찌하여 그러한 결론에 이르렀는지, 그 근거를 적어 보시옵소서.",
+    placeholder="예: 표를 보니 점점 줄어드는 듯하고, 유계·단조라는 답을 얻었으므로 0으로 수렴한다고 판단하였음 등"
 )
 
 st.markdown("---")
@@ -276,31 +300,33 @@ st.markdown("---")
 # -----------------------------
 # 6. 정답 공개
 # -----------------------------
-if st.button("📢 정답 공개"):
+if st.button("📢 이제 정답을 드러낼 것인가"):
     st.session_state.show_answer = True
 
 if st.session_state.show_answer:
-    st.markdown("## ✅ 정답 & 해설")
+    st.markdown("## ✅ 정답과 해설")
 
-    st.write(f"**숨겨진 수열 이름:** `{seq_data['name']}`")
+    st.write(f"**숨겨져 있던 수열의 이름:** `{seq_data['name']}`")
     st.latex(seq_data["expr"])
 
     if seq_data["convergent"]:
-        st.write(f"- 이 수열은 **수렴**합니다. 극한값은 **{seq_data['limit_value']}** 입니다.")
+        st.write(f"- 이 수열은 **수렴**하옵니다. 극한값은 **{seq_data['limit_value']}** 이옵니다.")
     else:
-        st.write("- 이 수열은 **수렴하지 않습니다. (발산 / 진동)**")
+        st.write("- 이 수열은 한 점으로 모이지 아니하고, **수렴하지 않사옵니다.**")
 
-    st.write("- 유계 여부:", "✅ 유계" if seq_data["bounded"] else "❌ 유계 아님")
-    st.write("- 단조성:", "✅ 어느 시점부터 단조" if seq_data["monotone"] else "❌ 단조 아님")
-    st.write("- 부호 변화:", "✅ 부호가 무한히 자주 바뀜" if seq_data["sign_changes"] else "❌ 부호 변화 없음 또는 제한적")
-    st.write("- n·a_n 수렴 여부:", "✅ 수렴" if seq_data["n_times_conv"] else "❌ 수렴하지 않거나 정의 안 함")
-    st.write("- |a_n| 수렴 여부:", "✅ 수렴" if seq_data["abs_conv"] else "❌ 수렴하지 않음")
-    st.write("- 두 개의 식으로 정의되는가:", "✅ 예(짝수/홀수 등)" if seq_data["piecewise2"] else "❌ 아니오")
+    st.write("- 유계 여부 :", "✅ 유계라 할 수 있사옵니다." if seq_data["bounded"] else "❌ 위로든 아래로든 한계를 두지 아니하옵니다.")
+    st.write("- 단조성 :", "✅ 어느 시점부터 한 방향으로만 나아가옵니다." if seq_data["monotone"] else "❌ 오르내림이 섞여 단조롭지 않사옵니다.")
+    st.write("- 부호 변화 :", "✅ 부호가 무한히 자주 바뀌옵니다." if seq_data["sign_changes"] else "❌ 부호 변화가 없거나 제한적이옵니다.")
+    st.write("- n·a_n 의 수렴성 :", "✅ n·a_n 역시 수렴하옵니다." if seq_data["n_times_conv"] else "❌ n·a_n 은 수렴하지 않거나, 이 맥락에서 의미 있게 다루기 어렵사옵니다.")
+    st.write("- |a_n| 의 수렴성 :", "✅ 절댓값 수열은 수렴하옵니다." if seq_data["abs_conv"] else "❌ 절댓값 수열 또한 수렴하지 않사옵니다.")
+    st.write("- 짝수 항 부분수열 :", "✅ (a₂, a₄, …) 은 수렴하옵니다." if seq_data["even_subseq_conv"] else "❌ 짝수 항들만 보아도 수렴하지 않사옵니다.")
+    st.write("- 홀수 항 부분수열 :", "✅ (a₁, a₃, …) 역시 수렴하옵니다." if seq_data["odd_subseq_conv"] else "❌ 홀수 항들만 따로 보아도 수렴하지 않사옵니다.")
+    st.write("- 1/n 과의 곱 a_n·(1/n) :", "✅ 항별 곱으로 얻은 새 수열은 수렴하옵니다." if seq_data["with_1_over_n_conv"] else "❌ 그러한 곱을 취해도 수렴으로 이르지 못하옵니다.")
 
-    st.markdown("### 🧾 해설 요약")
+    st.markdown("### 🧾 해설 한 줄 요약")
     st.write(seq_data["explain"])
 
-    st.markdown("### 🧠 되돌아보기 질문")
-    st.write("- 내가 던진 질문들 중, **결정적으로 도움이 된 질문**은 무엇이었는가?")
-    st.write("- 지금 돌아보면, **쓸데없이 쓴 질문**은 무엇이었는가?")
-    st.write("- 같은 수열을 다시 출제한다면, 나는 어떤 순서로 질문을 던질 것인가?")
+    st.markdown("### 🧠 성찰을 위한 물음")
+    st.write("- 방금 던졌던 질문들 가운데, **가장 결정적인 질문**은 어느 것이었사온지?")
+    st.write("- 지금 돌이켜 보면, **굳이 물을 필요가 없었던 질문**은 무엇이었사온지?")
+    st.write("- 다시 한 번 같은 수열을 출제한다면, 그대는 **어떤 순서로 질문을 배치**하겠는가?")
