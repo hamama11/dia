@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limit Trinity: 극한의 삼위일체</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #F3F4F6; }
+        .card { 
+            transition: all 0.3s ease; 
+            cursor: pointer; 
+            border: 2px solid transparent;
+        }
+        .card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .card.selected { 
+            border-color: #4F46E5; 
+            background-color: #EEF2FF; 
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(79, 70, 229, 0.4);
+        }
+        .card.matched {
+            transform: scale(0);
+            opacity: 0;
+        }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center py-10">
+
+    <!-- Header -->
+    <header class="text-center mb-8 w-full max-w-6xl px-4">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-3xl md:text-4xl font-black text-indigo-900 text-left">Limit Trinity 🧩</h1>
+            <div class="flex items-center space-x-2">
+                <div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full font-bold text-sm md:text-base">
+                    ROUND <span id="currentRound">1</span> / 3
+                </div>
+                <!-- PASS Button (No confirm dialog) -->
+                <button onclick="passRound()" class="bg-gray-200 hover:bg-gray-300 text-gray-600 font-bold py-2 px-4 rounded-full text-sm transition flex items-center shadow-sm">
+                    PASS ⏩
+                </button>
+            </div>
+        </div>
+        <p class="text-gray-600 text-left md:text-center mb-4">같은 수열의 <span class="text-indigo-600 font-bold">식, 표, 그래프</span> 3가지를 찾아 연결하세요!</p>
+        
+        <div class="flex justify-center space-x-4">
+            <div class="bg-white px-4 py-2 rounded-lg shadow text-sm font-bold text-gray-700">
+                남은 세트: <span id="setsLeft" class="text-indigo-600 text-lg">4</span>
+            </div>
+            <div class="bg-white px-4 py-2 rounded-lg shadow text-sm font-bold text-gray-700">
+                총 시도: <span id="attempts" class="text-red-500 text-lg">0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Game Board -->
+    <main class="max-w-6xl w-full px-4">
+        <div id="game-board" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            <!-- Cards will be injected here by JS -->
+        </div>
+    </main>
+
+    <!-- Success Modal (Set Match) -->
+    <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full text-center shadow-2xl transform transition-all scale-100">
+            <div class="text-5xl mb-4">🎉</div>
+            <h2 class="text-2xl font-bold text-gray-900 mb-2">정답입니다!</h2>
+            <p id="feedback-text" class="text-gray-600 mb-6 leading-relaxed">
+                <!-- Insight text goes here -->
+            </p>
+            <button onclick="closeModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-full transition">
+                계속하기
+            </button>
+        </div>
+    </div>
+
+    <!-- Round Clear / Game Over Modal -->
+    <div id="win-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-10 max-w-lg w-full text-center shadow-2xl">
+            <div class="text-6xl mb-6" id="win-icon">🏆</div>
+            <h2 class="text-3xl font-black text-indigo-900 mb-4" id="win-title">라운드 클리어!</h2>
+            <p class="text-gray-600 mb-8 text-lg" id="win-message">
+                모든 수열의 구조를 파악했습니다.
+            </p>
+            <button id="next-round-btn" onclick="nextRound()" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-8 rounded-full transition text-lg shadow-lg">
+                다음 라운드 도전
+            </button>
+        </div>
+    </div>
+
+    <!-- Dynamic Toast Message -->
+    <div id="toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-50 font-bold text-center w-max max-w-sm">
+        <!-- Text injected by JS -->
+    </div>
+
+    <script>
+        // --- Game Data (Pool of 12 Sequences for 3 Rounds) ---
+        const allSequences = [
+            // [Round 1] Basic Concepts
+            {
+                id: 'R1-A', name: '조화수열 (Harmonic)',
+                formulaHtml: 'aₙ = <span class="text-xl">1/n</span>',
+                values: [1, 0.5, 0.33, 0.25, 0.2],
+                graphData: Array.from({length: 10}, (_, i) => 1/(i+1)),
+                insight: "n이 커질수록 0에 가까워집니다.<br><b>'0으로 수렴'하는 가장 기본적인 형태입니다.</b>",
+                color: '#4F46E5'
+            },
+            {
+                id: 'R1-B', name: '진동 (Oscillation)',
+                formulaHtml: 'aₙ = 1 + (-1)ⁿ',
+                values: [0, 2, 0, 2, 0],
+                graphData: Array.from({length: 10}, (_, i) => 1 + Math.pow(-1, i+1)),
+                insight: "0과 2를 왔다 갔다 합니다.<br><b>특정한 값에 머무르지 않으므로 발산입니다.</b>",
+                color: '#EF4444'
+            },
+            {
+                id: 'R1-C', name: '상수수열 (Constant)',
+                formulaHtml: 'aₙ = 3',
+                values: [3, 3, 3, 3, 3],
+                graphData: Array.from({length: 10}, () => 3),
+                insight: "변화가 없어도 수렴입니다.<br><b>모든 항이 3이므로 극한값도 3입니다.</b>",
+                color: '#10B981'
+            },
+            {
+                id: 'R1-D', name: '유리식 (Rational)',
+                formulaHtml: 'aₙ = <span class="text-lg">n / (n+1)</span>',
+                values: [0.5, 0.67, 0.75, 0.8, 0.83],
+                graphData: Array.from({length: 10}, (_, i) => (i+1)/(i+2)),
+                insight: "분자, 분모가 비슷해지며 1로 갑니다.<br><b>최고차항의 계수비(1/1)와 같습니다.</b>",
+                color: '#F59E0B'
+            },
+            
+            // [Round 2] Speed & Signs
+            {
+                id: 'R2-A', name: '등비수열 (Geometric)',
+                formulaHtml: 'aₙ = (1/2)ⁿ',
+                values: [0.5, 0.25, 0.125, 0.06, 0.03],
+                graphData: Array.from({length: 10}, (_, i) => Math.pow(0.5, i+1)),
+                insight: "엄청나게 빠른 속도로 0이 됩니다.<br><b>공비의 절댓값이 1보다 작으면 0으로 수렴합니다.</b>",
+                color: '#8B5CF6'
+            },
+            {
+                id: 'R2-B', name: '무한대 발산',
+                formulaHtml: 'aₙ = n',
+                values: [1, 2, 3, 4, 5],
+                graphData: Array.from({length: 10}, (_, i) => i+1),
+                insight: "한없이 커지는 상태입니다.<br><b>특정 값에 도달하지 않으므로 양의 무한대로 발산합니다.</b>",
+                color: '#EC4899'
+            },
+            {
+                id: 'R2-C', name: '교대 조화수열',
+                formulaHtml: 'aₙ = (-1)ⁿ / n',
+                values: [-1, 0.5, -0.33, 0.25, -0.2],
+                graphData: Array.from({length: 10}, (_, i) => Math.pow(-1, i+1)/(i+1)),
+                insight: "부호가 바뀌며 진동하지만,<br><b>폭이 점점 줄어들어 결국 0으로 수렴합니다.</b>",
+                color: '#06B6D4'
+            },
+            {
+                id: 'R2-D', name: '자연상수 e',
+                formulaHtml: 'aₙ = (1 + 1/n)ⁿ',
+                values: [2, 2.25, 2.37, 2.44, 2.49],
+                graphData: Array.from({length: 10}, (_, i) => Math.pow(1 + 1/(i+1), i+1)),
+                insight: "점점 커지지만 3을 넘지 못합니다.<br><b>약 2.718..인 무리수 e로 수렴합니다.</b>",
+                color: '#6366F1'
+            },
+
+            // [Round 3] Applications
+            {
+                id: 'R3-A', name: '샌드위치 정리',
+                formulaHtml: 'aₙ = sin(n)/n',
+                values: [0.84, 0.45, 0.04, -0.18, -0.19],
+                graphData: Array.from({length: 10}, (_, i) => Math.sin(i+1)/(i+1)),
+                insight: "분자는 -1과 1 사이를 오가지만,<br><b>분모가 커져서 0으로 눌려버립니다(Squeeze).</b>",
+                color: '#14B8A6'
+            },
+            {
+                id: 'R3-B', name: '무리식의 극한',
+                formulaHtml: '√n+1 - √n',
+                values: [0.41, 0.32, 0.27, 0.24, 0.21],
+                graphData: Array.from({length: 10}, (_, i) => Math.sqrt(i+2) - Math.sqrt(i+1)),
+                insight: "계속 작아집니다.<br><b>유리화를 해보면 분모만 커져서 0으로 수렴함을 알 수 있습니다.</b>",
+                color: '#F97316'
+            },
+            {
+                id: 'R3-C', name: '계수비 극한',
+                formulaHtml: 'aₙ = (2n+1)/n',
+                values: [3, 2.5, 2.33, 2.25, 2.2],
+                graphData: Array.from({length: 10}, (_, i) => (2*(i+1)+1)/(i+1)),
+                insight: "위에서부터 2로 내려옵니다.<br><b>n의 계수 비인 2/1 = 2로 수렴합니다.</b>",
+                color: '#84CC16'
+            },
+            {
+                id: 'R3-D', name: '0 수열',
+                formulaHtml: 'aₙ = 0',
+                values: [0, 0, 0, 0, 0],
+                graphData: Array.from({length: 10}, () => 0),
+                insight: "아무런 움직임이 없습니다.<br><b>상수수열 0은 당연히 0으로 수렴합니다.</b>",
+                color: '#64748B'
+            }
+        ];
+
+        // --- Game State ---
+        let currentRound = 1;
+        const maxRounds = 3;
+        const setsPerRound = 4;
+        
+        let cards = [];
+        let selectedCards = [];
+        let matchedSets = 0;
+        let attempts = 0;
+
+        // --- Initialization ---
+        function initGame() {
+            // Setup UI for Round
+            document.getElementById('currentRound').innerText = currentRound;
+            document.getElementById('setsLeft').innerText = setsPerRound;
+            document.getElementById('win-modal').classList.add('hidden');
+            
+            // Reset State
+            matchedSets = 0;
+            selectedCards = [];
+            cards = [];
+            
+            const gameBoard = document.getElementById('game-board');
+            gameBoard.innerHTML = '';
+
+            // Get Sequences for this Round
+            const startIdx = (currentRound - 1) * setsPerRound;
+            const roundData = allSequences.slice(startIdx, startIdx + setsPerRound);
+            
+            // Create Cards
+            roundData.forEach(seq => {
+                // 1. Formula Card
+                cards.push({
+                    type: 'formula', seqId: seq.id, data: seq,
+                    content: `<div class="text-center font-serif font-bold text-gray-800 text-xl md:text-2xl">${seq.formulaHtml}</div>`
+                });
+                // 2. Table Card
+                const tableRows = seq.values.map((v, i) => 
+                    `<div class="flex justify-between text-xs border-b border-gray-100 py-1"><span>n=${i+1}</span><span class="font-mono text-indigo-600">${v.toFixed(2).replace(/[.,]00$/, "")}</span></div>`
+                ).join('');
+                cards.push({
+                    type: 'table', seqId: seq.id, data: seq,
+                    content: `<div class="w-full space-y-1">${tableRows}<div class="text-center text-xs text-gray-400">...</div></div>`
+                });
+                // 3. Graph Card
+                cards.push({
+                    type: 'graph', seqId: seq.id, data: seq,
+                    content: `<canvas id="chart-${seq.id}" class="w-full h-full"></canvas>`
+                });
+            });
+
+            // Shuffle Cards
+            cards.sort(() => Math.random() - 0.5);
+
+            // Render Cards
+            cards.forEach((card, index) => {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'card bg-white rounded-xl shadow-md p-4 h-48 flex flex-col items-center justify-center relative overflow-hidden fade-in';
+                cardEl.dataset.index = index;
+                
+                let typeIcon = '', typeLabel = '';
+                if(card.type === 'formula') { typeIcon = '∑'; typeLabel = '식 (Formula)'; }
+                else if(card.type === 'table') { typeIcon = '▦'; typeLabel = '표 (Table)'; }
+                else { typeIcon = '📈'; typeLabel = '그래프 (Graph)'; }
+
+                cardEl.innerHTML = `
+                    <div class="absolute top-2 left-3 text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center">
+                        <span class="mr-1">${typeIcon}</span> ${typeLabel}
+                    </div>
+                    <div class="mt-4 w-full flex items-center justify-center h-full">
+                        ${card.content}
+                    </div>
+                `;
+                
+                cardEl.addEventListener('click', () => handleCardClick(cardEl, index));
+                gameBoard.appendChild(cardEl);
+
+                // Init Chart
+                if (card.type === 'graph') {
+                    setTimeout(() => renderMiniChart(`chart-${card.seqId}`, card.data.graphData, card.data.color), 0);
+                }
+            });
+        }
+
+        // --- Chart Rendering ---
+        function renderMiniChart(canvasId, dataPoints, color) {
+            const ctx = document.getElementById(canvasId);
+            if(!ctx) return;
+            // Destroy existing if any (unlikely due to ID uniqueness per round, but safe)
+            if(Chart.getChart(canvasId)) Chart.getChart(canvasId).destroy();
+            
+            new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        data: dataPoints.map((y, x) => ({x: x+1, y: y})),
+                        backgroundColor: color,
+                        borderColor: color,
+                        showLine: false,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { display: true, ticks: { display: false } }
+                    },
+                    layout: { padding: 5 }
+                }
+            });
+        }
+
+        // --- Game Logic ---
+        function handleCardClick(element, index) {
+            if (element.classList.contains('matched')) return;
+            if (selectedCards.includes(index)) {
+                element.classList.remove('selected');
+                selectedCards = selectedCards.filter(i => i !== index);
+                return;
+            }
+
+            if (selectedCards.length < 3) {
+                element.classList.add('selected');
+                selectedCards.push(index);
+            }
+
+            if (selectedCards.length === 3) {
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            attempts++;
+            document.getElementById('attempts').innerText = attempts;
+
+            const [idx1, idx2, idx3] = selectedCards;
+            const c1 = cards[idx1], c2 = cards[idx2], c3 = cards[idx3];
+
+            if (c1.seqId === c2.seqId && c2.seqId === c3.seqId) {
+                // MATCH
+                setTimeout(() => {
+                    handleSuccess(c1.data);
+                    
+                    document.querySelectorAll('.selected').forEach(el => {
+                        el.classList.remove('selected');
+                        el.classList.add('matched');
+                        el.style.pointerEvents = 'none';
+                    });
+                    
+                    selectedCards = [];
+                    matchedSets++;
+                    document.getElementById('setsLeft').innerText = setsPerRound - matchedSets;
+
+                    if (matchedSets === setsPerRound) {
+                        setTimeout(handleRoundClear, 1000);
+                    }
+                }, 300);
+            } else {
+                // NO MATCH
+                showToast("❌ 틀렸습니다. 다시 확인해보세요!", true);
+                setTimeout(() => {
+                    document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                    selectedCards = [];
+                }, 1000);
+            }
+        }
+
+        function handleSuccess(seqData) {
+            const modal = document.getElementById('success-modal');
+            document.getElementById('feedback-text').innerHTML = `
+                <strong class="text-indigo-700 text-lg block mb-2">${seqData.name}</strong>
+                ${seqData.insight}
+            `;
+            modal.classList.remove('hidden');
+        }
+
+        function handleRoundClear() {
+            const modal = document.getElementById('win-modal');
+            const title = document.getElementById('win-title');
+            const msg = document.getElementById('win-message');
+            const btn = document.getElementById('next-round-btn');
+            const icon = document.getElementById('win-icon');
+
+            modal.classList.remove('hidden');
+
+            if (currentRound < maxRounds) {
+                icon.innerText = "🚩";
+                title.innerText = `라운드 ${currentRound} 클리어!`;
+                msg.innerHTML = "훌륭합니다! 다음 라운드에는 <br><b>더 복잡하고 다양한 수열</b>이 기다리고 있습니다.";
+                btn.innerText = "다음 라운드 시작";
+                btn.onclick = nextRound;
+            } else {
+                icon.innerText = "🏆";
+                title.innerText = "최종 우승!";
+                msg.innerHTML = "모든 라운드를 정복했습니다.<br>당신은 이제 <b>수열의 구조 마스터</b>입니다!";
+                btn.innerText = "처음부터 다시하기";
+                btn.onclick = () => location.reload();
+            }
+        }
+
+        function nextRound() {
+            currentRound++;
+            initGame();
+        }
+
+        // NEW: Pass Round Functionality (Fixed: No confirm dialog)
+        function passRound() {
+            // Removed confirm() for better compatibility
+            showToast("⏩ 라운드를 건너뛰었습니다.", false);
+            
+            if (currentRound < maxRounds) {
+                currentRound++;
+                initGame();
+            } else {
+                // If passing the last round, end the game
+                const modal = document.getElementById('win-modal');
+                document.getElementById('win-icon').innerText = "🏁";
+                document.getElementById('win-title').innerText = "게임 종료";
+                document.getElementById('win-message').innerHTML = "모든 라운드가 종료되었습니다.";
+                
+                const btn = document.getElementById('next-round-btn');
+                btn.innerText = "다시 하기";
+                btn.onclick = () => location.reload();
+                
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('success-modal').classList.add('hidden');
+        }
+
+        function showToast(msg, isError) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            
+            // Dynamic styling based on message type
+            if (isError) {
+                toast.className = "fixed bottom-10 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-lg opacity-100 transition-opacity duration-300 pointer-events-none z-50 font-bold text-center w-max max-w-sm bg-red-500 text-white";
+            } else {
+                toast.className = "fixed bottom-10 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-lg opacity-100 transition-opacity duration-300 pointer-events-none z-50 font-bold text-center w-max max-w-sm bg-gray-800 text-white";
+            }
+            
+            toast.style.opacity = '1';
+            setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+        }
+
+        // Start Game
+        initGame();
+
+    </script>
+</body>
+</html>
