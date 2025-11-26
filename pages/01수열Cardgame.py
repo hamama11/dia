@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 st.title("🧩 Limit Trinity - 수열 매칭 게임")
-st.caption("Github Pages에 배포된 게임을 그대로 Streamlit 안에서 실행합니다.")
+st.caption("오류가 뜨는 경우 직접 접속해 주세요 hamama11.github.io/boostcamp/limit.html")
 
 components.iframe(
     src="https://hamama11.github.io/boostcamp/limit.html",
