@@ -10,8 +10,7 @@ st.markdown(
 
     👉 [hamama11.github.io/boostcamp/limit.html](https://hamama11.github.io/boostcamp/limit.html)
 
-    **배움의 도(道)는 잠시 가려질지언정 끊어지지 아니하나니,  
-    뜻을 세운 이라면 기필코 확인하여 탐구를 이어가시기 바라옵니다.**
+    **배움의 도(道)는 잠시 가려질지언정 끊어지지 아니하나니, 뜻을 세운 이라면 기필코 확인하여 탐구를 이어가시기 바라옵니다.**
     """,
     unsafe_allow_html=True
 )
